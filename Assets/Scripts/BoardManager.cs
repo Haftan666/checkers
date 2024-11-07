@@ -118,15 +118,24 @@ public class BoardManager : MonoBehaviour
             pieces[startX, startY] = null;
             piece.transform.position = new Vector3(endX - 0.277f, 0, endY - 0.115f);
 
-            if (piece.team == Team.WHITE && endY == 7)
+            PromotePieceIfNeeded(piece, endY);
+
+            bool captured = false;
+            if (rank == Rank.Knight)
             {
-                piece.transform.rotation = Quaternion.Euler(90, 0, 0);
-                piece.rank = Rank.Knight;
+                captured = CapturePawnsPassedByKnight(startX, startY, endX, endY);
             }
-            else if (piece.team == Team.BLACK && endY == 0)
+            else
             {
-                piece.transform.rotation = Quaternion.Euler(90, 0, 0);
-                piece.rank = Rank.Knight;
+                captured = CapturePawnIfNeeded(startX, startY, endX, endY);
+            }
+
+            // Check if the piece can continue capturing
+            if (captured && CanCapture(endX, endY, piece.rank))
+            {
+                selectedPiece = piece;
+                startDrag = new Vector2(endX, endY);
+                return; // Do not end the turn
             }
 
             isWhiteTurn = !isWhiteTurn;
@@ -139,44 +148,193 @@ public class BoardManager : MonoBehaviour
         }
     }
 
+    private void PromotePieceIfNeeded(Piece piece, int endY)
+    {
+        if (piece.team == Team.WHITE && endY == 7)
+        {
+            piece.transform.rotation = Quaternion.Euler(90, 0, 0);
+            piece.rank = Rank.Knight;
+        }
+        else if (piece.team == Team.BLACK && endY == 0)
+        {
+            piece.transform.rotation = Quaternion.Euler(90, 0, 180);
+            piece.rank = Rank.Knight;
+        }
+    }
+
+    private bool CapturePawnsPassedByKnight(int startX, int startY, int endX, int endY)
+    {
+        bool captured = false;
+        int stepX = (endX - startX) / Mathf.Abs(endX - startX);
+        int stepY = (endY - startY) / Mathf.Abs(endY - startY);
+        int x = startX + stepX;
+        int y = startY + stepY;
+
+        while (x != endX && y != endY)
+        {
+            Piece midPiece = pieces[x, y];
+            if (midPiece != null && midPiece.team != selectedPiece.team && midPiece.rank == Rank.Pawn)
+            {
+                pieces[x, y] = null;
+                Destroy(midPiece.gameObject);
+                captured = true;
+            }
+            x += stepX;
+            y += stepY;
+        }
+
+        return captured;
+    }
+
+    private bool CapturePawnIfNeeded(int startX, int startY, int endX, int endY)
+    {
+        bool captured = Mathf.Abs(endX - startX) == 2 && Mathf.Abs(endY - startY) == 2;
+        if (captured)
+        {
+            int midX = (startX + endX) / 2;
+            int midY = (startY + endY) / 2;
+            Piece capturedPiece = pieces[midX, midY];
+            if (capturedPiece != null)
+            {
+                pieces[midX, midY] = null;
+                Destroy(capturedPiece.gameObject);
+            }
+        }
+
+        return captured;
+    }
+
+
+
+    private bool CanCapture(int x, int y, Rank rank)
+    {
+        int[] dx = { 2, 2, -2, -2 };
+        int[] dy = { 2, -2, 2, -2 };
+
+        for (int i = 0; i < 4; i++)
+        {
+            int newX = x + dx[i];
+            int newY = y + dy[i];
+
+            if (newX >= 0 && newX < 8 && newY >= 0 && newY < 8)
+            {
+                int midX = (x + newX) / 2;
+                int midY = (y + newY) / 2;
+                Piece midPiece = pieces[midX, midY];
+
+                if (midPiece != null && midPiece.team != selectedPiece.team && pieces[newX, newY] == null)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
 
 
     private bool IsValidMove(int startX, int startY, int endX, int endY, Rank rank)
     {
-        if (endX < 0 || endX >= 8 || endY < 0 || endY >= 8)
+        if (IsOutOfBounds(endX, endY) || IsOccupied(endX, endY))
         {
             return false;
         }
 
-        if (pieces[endX, endY] != null)
+        int deltaX = Mathf.Abs(endX - startX);
+        int deltaY = Mathf.Abs(endY - startY);
+
+        bool mustCapture = MustCapture();
+
+        if (rank == Rank.Pawn)
         {
-            return false;
+            return IsValidPawnMove(startX, startY, endX, endY, deltaX, deltaY, mustCapture);
+        }
+        else if (rank == Rank.Knight)
+        {
+            return IsValidKnightMove(startX, startY, endX, endY, deltaX, deltaY, mustCapture);
         }
 
-        if ((Mathf.Abs(endX - startX) != 1 || Mathf.Abs(endY - startY) != 1) && rank == Rank.Pawn)
-        {
-            return false;
-        }
-
-        if ((Mathf.Abs(endX - startX) !=  Mathf.Abs(endY - startY)) && rank == Rank.Knight)
-        {
-            return false;
-        }
-
-        if (endY > startY && selectedPiece.team == Team.BLACK && rank != Rank.Knight)
-        {
-            return false;
-        }
-
-        if (endY < startY && selectedPiece.team == Team.WHITE && rank != Rank.Knight)
-        {
-            return false;
-        }
-
-
-
-        return true;
+        return false;
     }
+
+    private bool IsOutOfBounds(int x, int y)
+    {
+        return x < 0 || x >= 8 || y < 0 || y >= 8;
+    }
+
+    private bool IsOccupied(int x, int y)
+    {
+        return pieces[x, y] != null;
+    }
+
+    private bool MustCapture()
+    {
+        for (int x = 0; x < 8; x++)
+        {
+            for (int y = 0; y < 8; y++)
+            {
+                if (pieces[x, y] != null && pieces[x, y].team == selectedPiece.team && CanCapture(x, y, pieces[x, y].rank))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private bool IsValidPawnMove(int startX, int startY, int endX, int endY, int deltaX, int deltaY, bool mustCapture)
+    {
+        if (deltaX == 1 && deltaY == 1)
+        {
+            if ((selectedPiece.team == Team.WHITE && endY > startY) || (selectedPiece.team == Team.BLACK && endY < startY))
+            {
+                return !mustCapture;
+            }
+        }
+
+        if (deltaX == 2 && deltaY == 2)
+        {
+            int midX = (startX + endX) / 2;
+            int midY = (startY + endY) / 2;
+            Piece midPiece = pieces[midX, midY];
+            if (midPiece != null && midPiece.team != selectedPiece.team)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsValidKnightMove(int startX, int startY, int endX, int endY, int deltaX, int deltaY, bool mustCapture)
+    {
+        if (deltaX == deltaY)
+        {
+            if (mustCapture && !CanCapture(startX, startY, Rank.Knight))
+            {
+                return false;
+            }
+
+            if (deltaX == 2 && deltaY == 2)
+            {
+                int midX = (startX + endX) / 2;
+                int midY = (startY + endY) / 2;
+                Piece midPiece = pieces[midX, midY];
+                if (midPiece != null && midPiece.team != selectedPiece.team)
+                {
+                    return true;
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+
+
 
 
 
