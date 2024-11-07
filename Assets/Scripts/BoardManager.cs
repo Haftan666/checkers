@@ -50,7 +50,7 @@ public class BoardManager : MonoBehaviour
         {
             if (selectedPiece != null)
             {
-                TryMove((int)startDrag.x, (int)startDrag.y, x, y);
+                TryMove((int)startDrag.x, (int)startDrag.y, x, y, selectedPiece.rank);
                 selectedPiece = null;
             }
         }
@@ -107,15 +107,26 @@ public class BoardManager : MonoBehaviour
         }
     }
 
-    private void TryMove(int startX, int startY, int endX, int endY)
+    private void TryMove(int startX, int startY, int endX, int endY, Rank rank)
     {
 
-        if (IsValidMove(startX, startY, endX, endY))
+        if (IsValidMove(startX, startY, endX, endY, rank))
         {
             Piece piece = pieces[startX, startY];
             pieces[endX, endY] = piece;
             pieces[startX, startY] = null;
             piece.transform.position = new Vector3(endX - 0.277f, 0, endY - 0.115f);
+
+            if(piece.team == Team.WHITE && endY == 7)
+            {
+                piece.transform.rotation = Quaternion.Euler(90, 0, 0);
+                piece.rank = Rank.Knight;
+            }
+            else if(piece.team == Team.BLACK && endY == 0)
+            {
+                piece.transform.rotation = Quaternion.Euler(90, 0, 0);
+                piece.rank = Rank.Knight;
+            }
         }
         else
         {
@@ -125,7 +136,7 @@ public class BoardManager : MonoBehaviour
     }
 
 
-    private bool IsValidMove(int startX, int startY, int endX, int endY)
+    private bool IsValidMove(int startX, int startY, int endX, int endY, Rank rank)
     {
         if (endX < 0 || endX >= 8 || endY < 0 || endY >= 8)
         {
@@ -137,17 +148,22 @@ public class BoardManager : MonoBehaviour
             return false;
         }
 
-        if (Mathf.Abs(endX - startX) != 1 || Mathf.Abs(endY - startY) != 1)
+        if ((Mathf.Abs(endX - startX) != 1 || Mathf.Abs(endY - startY) != 1) && rank == Rank.Pawn)
         {
             return false;
         }
 
-        if (endY > startY && selectedPiece.team == Team.BLACK)
+        if ((Mathf.Abs(endX - startX) !=  Mathf.Abs(endY - startY)) && rank == Rank.Knight)
         {
             return false;
         }
 
-        if (endY < startY && selectedPiece.team == Team.WHITE)
+        if (endY > startY && selectedPiece.team == Team.BLACK && rank != Rank.Knight)
+        {
+            return false;
+        }
+
+        if (endY < startY && selectedPiece.team == Team.WHITE && rank != Rank.Knight)
         {
             return false;
         }
@@ -216,7 +232,7 @@ public class BoardManager : MonoBehaviour
 
         Vector3 correctedPosition = new Vector3(x, 0, z);
         pieceObject.transform.localPosition = correctedPosition;
-        pieceObject.transform.localRotation = team == Team.WHITE ? Quaternion.Euler(90, 0, 0) : Quaternion.Euler(90, 180, 0);
+        pieceObject.transform.localRotation = team == Team.WHITE ? Quaternion.Euler(-90, 0, 0) : Quaternion.Euler(-90, 180, 0);
 
         pieceObject.transform.SetParent(team == Team.WHITE ? whitePiecesParent.transform : blackPiecesParent.transform, false);
 
