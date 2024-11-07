@@ -1,4 +1,5 @@
-﻿using Unity.Properties;
+﻿using System.Collections;
+using Unity.Properties;
 using UnityEngine;
 
 public enum Team
@@ -22,6 +23,7 @@ public class BoardManager : MonoBehaviour
     private Vector2 startDrag;
     private Vector2 endDrag;
     private Piece selectedPiece;
+    private bool isWhiteTurn = true;
 
 
     private void Start()
@@ -84,7 +86,7 @@ public class BoardManager : MonoBehaviour
             return;
 
         Piece p = pieces[x, y];
-        if (p != null)
+        if (p != null && ((p.team == Team.WHITE && isWhiteTurn) || p.team == Team.BLACK && !isWhiteTurn))
         {
             selectedPiece = p;
             startDrag = mouseOver;
@@ -109,7 +111,6 @@ public class BoardManager : MonoBehaviour
 
     private void TryMove(int startX, int startY, int endX, int endY, Rank rank)
     {
-
         if (IsValidMove(startX, startY, endX, endY, rank))
         {
             Piece piece = pieces[startX, startY];
@@ -117,16 +118,19 @@ public class BoardManager : MonoBehaviour
             pieces[startX, startY] = null;
             piece.transform.position = new Vector3(endX - 0.277f, 0, endY - 0.115f);
 
-            if(piece.team == Team.WHITE && endY == 7)
+            if (piece.team == Team.WHITE && endY == 7)
             {
                 piece.transform.rotation = Quaternion.Euler(90, 0, 0);
                 piece.rank = Rank.Knight;
             }
-            else if(piece.team == Team.BLACK && endY == 0)
+            else if (piece.team == Team.BLACK && endY == 0)
             {
                 piece.transform.rotation = Quaternion.Euler(90, 0, 0);
                 piece.rank = Rank.Knight;
             }
+
+            isWhiteTurn = !isWhiteTurn;
+            StartCoroutine(RotateCamera(1.0f)); // Rotate over 1 second
         }
         else
         {
@@ -134,6 +138,7 @@ public class BoardManager : MonoBehaviour
             selectedPiece.transform.position = new Vector3(startX - 0.277f, 0, startY - 0.115f);
         }
     }
+
 
 
     private bool IsValidMove(int startX, int startY, int endX, int endY, Rank rank)
@@ -240,4 +245,21 @@ public class BoardManager : MonoBehaviour
         Piece p = pieceObject.GetComponent<Piece>();
         pieces[x, z] = p;
     }
+
+    private IEnumerator RotateCamera(float duration)
+    {
+        Quaternion startRotation = Camera.main.transform.rotation;
+        Quaternion endRotation = isWhiteTurn ? startRotation * Quaternion.Euler(0, 0, 180) : startRotation * Quaternion.Euler(0, 0, -180);
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            Camera.main.transform.rotation = Quaternion.Slerp(startRotation, endRotation, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        Camera.main.transform.rotation = endRotation;
+    }
+
 }
