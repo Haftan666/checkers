@@ -42,13 +42,20 @@ public static class PieceMovement
             {
                 boardManager.SelectedPiece = piece;
                 boardManager.StartDrag = new Vector2(endX, endY);
+                boardManager.PlayPiecePlacedSound();
                 return;
             }
 
             boardManager.IsWhiteTurn = !boardManager.IsWhiteTurn;
-            boardManager.StartCoroutine(CameraController.RotateCamera(1.0f, boardManager.IsWhiteTurn));
-
             boardManager.CheckGameOver();
+            if (boardManager.isGameOver)
+            {
+                return;
+            }
+            boardManager.StartCoroutine(CameraController.RotateCamera(1.0f, boardManager.IsWhiteTurn));
+            boardManager.PlayPiecePlacedSound();
+
+
         }
         else
         {
@@ -78,7 +85,6 @@ public static class PieceMovement
         }
         else
         {
-            // Check if the piece is on the promotion row but has captured a piece
             if (piece.team == Team.WHITE && endY == 7)
             {
                 piece.transform.rotation = Quaternion.Euler(90, 0, 0);
@@ -108,7 +114,7 @@ public static class PieceMovement
             if (midPiece != null && midPiece.team != boardManager.SelectedPiece.team && midPiece.rank == Rank.Pawn)
             {
                 boardManager.pieces[x, y] = null;
-                Object.Destroy(midPiece.gameObject);
+                AddPhysicsAndLaunch(midPiece);
                 captured = true;
             }
             x += stepX;
@@ -117,6 +123,7 @@ public static class PieceMovement
 
         return captured;
     }
+
 
 
     public static bool CapturePawnIfNeeded(BoardManager boardManager, int startX, int startY, int endX, int endY)
@@ -130,12 +137,13 @@ public static class PieceMovement
             if (capturedPiece != null)
             {
                 boardManager.pieces[midX, midY] = null;
-                Object.Destroy(capturedPiece.gameObject);
+                AddPhysicsAndLaunch(capturedPiece);
             }
         }
 
         return captured;
     }
+
 
     public static bool CanCapture(BoardManager boardManager, int x, int y, Rank rank)
     {
@@ -263,5 +271,23 @@ public static class PieceMovement
 
         return false;
     }
+
+
+    private static void AddPhysicsAndLaunch(Piece piece)
+    {
+        Rigidbody rb = piece.gameObject.AddComponent<Rigidbody>();
+        rb.useGravity = true;
+
+        Vector3 forceDirection = piece.team == Team.WHITE ? Vector3.right : Vector3.left;
+        Vector3 force = (forceDirection + Vector3.up) * 10.0f; 
+
+        rb.AddForce(force, ForceMode.Impulse);
+
+        Vector3 torqueDirection = piece.team == Team.WHITE ? Vector3.forward : Vector3.back;
+        float torqueMagnitude = 10.0f;
+
+        rb.AddTorque(torqueDirection * torqueMagnitude, ForceMode.Impulse);
+    }
+
 
 }
