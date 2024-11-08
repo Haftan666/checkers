@@ -1,4 +1,5 @@
-﻿using Unity.Properties;
+﻿using System.Collections;
+using Unity.Properties;
 using UnityEngine;
 
 public enum Team
@@ -6,93 +7,112 @@ public enum Team
     WHITE,
     BLACK
 }
-
 public class BoardManager : MonoBehaviour
 {
     public Piece[,] pieces = new Piece[8, 8];
     public GameObject whitePiecePrefab;
     public GameObject blackPiecePrefab;
+    public Vector3 boardOffset = new Vector3(-3.507f, 0.3571f, -3.485f);
+    public Vector3 pieceOffset = new Vector3(3.23f - 3.507f, 0, 3.37f - 3.485f);
 
-    private GameObject whitePiecesParent;
-    private GameObject blackPiecesParent;
+    public GameObject whitePiecesParent { get; set; }
+    public GameObject blackPiecesParent { get; set; }
+
+    private Vector2 mouseOver;
+    private Vector2 startDrag;
+    private Vector2 endDrag;
+    private Piece selectedPiece;
+    private bool isWhiteTurn = true;
+
+    public Piece SelectedPiece
+    {
+        get { return selectedPiece; }
+        set { selectedPiece = value; }
+    }
+
+    public Vector2 StartDrag
+    {
+        get { return startDrag; }
+        set { startDrag = value; }
+    }
+
+    public bool IsWhiteTurn
+    {
+        get { return isWhiteTurn; }
+        set { isWhiteTurn = value; }
+    }
 
     private void Start()
     {
-        GenerateBoard();
+        BoardGenerator.GenerateBoard(this);
     }
 
-    private void GenerateBoard()
+    private void Update()
     {
-        // Utwórz pusty obiekt WhitePieces
-        whitePiecesParent = new GameObject("WhitePieces");
-        whitePiecesParent.transform.SetParent(transform);
-        whitePiecesParent.transform.localPosition = new Vector3(-3.507f, 0.3571f, -3.485f);
+        UpdateMouseOver();
 
-        // Utwórz pusty obiekt BlackPieces
-        blackPiecesParent = new GameObject("BlackPieces");
-        blackPiecesParent.transform.SetParent(transform);
-        blackPiecesParent.transform.localPosition = new Vector3(-3.507f, 0.3571f, -3.485f);
+        int x = (int)mouseOver.x;
+        int y = (int)mouseOver.y;
 
-        GenerateWhiteTeam();
-        GenerateBlackTeam();
-    }
-
-    private void GenerateWhiteTeam()
-    {
-        for (int x = 0; x < 8; x += 2)
+        if (Input.GetMouseButtonDown(0))
         {
-            for (int z = 0; z < 3; z++)
+            SelectPiece(x, y);
+        }
+
+        if (selectedPiece != null)
+        {
+            PieceMovement.DragPiece(selectedPiece);
+        }
+
+        if (Input.GetMouseButtonUp(0))
+        {
+            if (selectedPiece != null)
             {
-                if (z % 2 == 0)
-                {
-                    GeneratePiece(x, z, Team.WHITE);
-                }
-                else
-                {
-                    GeneratePiece(x + 1, z, Team.WHITE);
-                }
+                PieceMovement.TryMove(this, (int)startDrag.x, (int)startDrag.y, x, y, selectedPiece.rank);
+                selectedPiece = null;
             }
         }
     }
 
-    private void GenerateBlackTeam()
+    private void UpdateMouseOver()
     {
-        for (int x = 0; x < 8; x += 2)
+        if (!Camera.main)
         {
-            for (int z = 5; z < 8; z++)
-            {
-                if (z % 2 == 0)
-                {
-                    GeneratePiece(x, z, Team.BLACK);
-                }
-                else
-                {
-                    GeneratePiece(x + 1, z, Team.BLACK);
-                }
-            }
+            Debug.Log("Unable to find main camera");
+            return;
         }
-    }
 
-    private void GeneratePiece(int x, int z, Team team)
-    {
-        GameObject piecePrefab = team == Team.WHITE ? whitePiecePrefab : blackPiecePrefab;
-        GameObject pieceObject = Instantiate(piecePrefab) as GameObject;
-
-        Vector3 correctedPosition = new Vector3(x, 0, z);
-        pieceObject.transform.localPosition = correctedPosition;
-        pieceObject.transform.localRotation = team == Team.WHITE ? Quaternion.Euler(90, 0, 0) : Quaternion.Euler(90, 180, 0);
-
-        // Ustawienie rodzica dla białych i czarnych pionków
-        if (team == Team.WHITE)
+        RaycastHit hit;
+        if (Physics.Raycast(Camera.main.ScreenPointToRay(Input.mousePosition), out hit, 25.0f, LayerMask.GetMask("Board")))
         {
-            pieceObject.transform.SetParent(whitePiecesParent.transform, false);
+            float boardSquareSize = 1.0f;
+            mouseOver.x = Mathf.FloorToInt(hit.point.x + boardSquareSize / 2);
+            mouseOver.y = Mathf.FloorToInt(hit.point.z + boardSquareSize / 2);
         }
         else
         {
-            pieceObject.transform.SetParent(blackPiecesParent.transform, false);
+            mouseOver.x = -1;
+            mouseOver.y = -1;
         }
+    }
 
-        Piece p = pieceObject.GetComponent<Piece>();
-        pieces[x, z] = p;
+    private void SelectPiece(int x, int y)
+    {
+        if (x < 0 || x >= pieces.GetLength(0) || y < 0 || y >= pieces.GetLength(1))
+            return;
+
+        Piece p = pieces[x, y];
+        if (p != null && ((p.team == Team.WHITE && isWhiteTurn) || p.team == Team.BLACK && !isWhiteTurn))
+        {
+            selectedPiece = p;
+            startDrag = mouseOver;
+            Debug.Log(selectedPiece.name);
+        }
+    }
+
+    public void EndTurn()
+    {
+        isWhiteTurn = !isWhiteTurn;
+        StartCoroutine(CameraController.RotateCamera(1.0f, isWhiteTurn));
     }
 }
