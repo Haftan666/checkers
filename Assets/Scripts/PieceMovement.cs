@@ -26,8 +26,6 @@ public static class PieceMovement
             boardManager.pieces[startX, startY] = null;
             piece.transform.position = new Vector3(endX - 0.277f, 0, endY - 0.115f);
 
-            PromotePieceIfNeeded(piece, endY);
-
             bool captured = false;
             if (rank == Rank.Knight)
             {
@@ -38,6 +36,8 @@ public static class PieceMovement
                 captured = CapturePawnIfNeeded(boardManager, startX, startY, endX, endY);
             }
 
+            PromotePieceIfNeeded(boardManager, piece, endX, endY);
+
             if (captured && CanCapture(boardManager, endX, endY, piece.rank))
             {
                 boardManager.SelectedPiece = piece;
@@ -47,6 +47,8 @@ public static class PieceMovement
 
             boardManager.IsWhiteTurn = !boardManager.IsWhiteTurn;
             boardManager.StartCoroutine(CameraController.RotateCamera(1.0f, boardManager.IsWhiteTurn));
+
+            boardManager.CheckGameOver();
         }
         else
         {
@@ -54,19 +56,43 @@ public static class PieceMovement
         }
     }
 
-    public static void PromotePieceIfNeeded(Piece piece, int endY)
+
+
+
+    public static void PromotePieceIfNeeded(BoardManager boardManager, Piece piece, int endX, int endY)
     {
-        if (piece.team == Team.WHITE && endY == 7)
+        bool canCapture = CanCapture(boardManager, endX, endY, piece.rank);
+
+        if (!canCapture)
         {
-            piece.transform.rotation = Quaternion.Euler(90, 0, 0);
-            piece.rank = Rank.Knight;
+            if (piece.team == Team.WHITE && endY == 7)
+            {
+                piece.transform.rotation = Quaternion.Euler(90, 0, 0);
+                piece.rank = Rank.Knight;
+            }
+            else if (piece.team == Team.BLACK && endY == 0)
+            {
+                piece.transform.rotation = Quaternion.Euler(90, 0, 180);
+                piece.rank = Rank.Knight;
+            }
         }
-        else if (piece.team == Team.BLACK && endY == 0)
+        else
         {
-            piece.transform.rotation = Quaternion.Euler(90, 0, 180);
-            piece.rank = Rank.Knight;
+            // Check if the piece is on the promotion row but has captured a piece
+            if (piece.team == Team.WHITE && endY == 7)
+            {
+                piece.transform.rotation = Quaternion.Euler(90, 0, 0);
+                piece.rank = Rank.Knight;
+            }
+            else if (piece.team == Team.BLACK && endY == 0)
+            {
+                piece.transform.rotation = Quaternion.Euler(90, 0, 180);
+                piece.rank = Rank.Knight;
+            }
         }
     }
+
+
 
     public static bool CapturePawnsPassedByKnight(BoardManager boardManager, int startX, int startY, int endX, int endY)
     {
