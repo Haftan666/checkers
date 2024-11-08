@@ -14,6 +14,8 @@ public class BoardManager : MonoBehaviour
     public GameObject blackPiecePrefab;
     public Vector3 boardOffset = new Vector3(-3.507f, 0.3571f, -3.485f);
     public Vector3 pieceOffset = new Vector3(3.23f - 3.507f, 0, 3.37f - 3.485f);
+    public bool isGameOver = false;
+    public bool isBoardSetupComplete = false;
 
     public GameObject whitePiecesParent { get; set; }
     public GameObject blackPiecesParent { get; set; }
@@ -23,6 +25,7 @@ public class BoardManager : MonoBehaviour
     private Vector2 endDrag;
     private Piece selectedPiece;
     private bool isWhiteTurn = true;
+    public AudioSource audioSource;
 
     public Piece SelectedPiece
     {
@@ -45,6 +48,7 @@ public class BoardManager : MonoBehaviour
     private void Start()
     {
         BoardGenerator.GenerateBoard(this);
+        audioSource = GetComponent<AudioSource>();
     }
 
     private void Update()
@@ -113,6 +117,10 @@ public class BoardManager : MonoBehaviour
     public void EndTurn()
     {
         isWhiteTurn = !isWhiteTurn;
+        if(isGameOver)
+        {
+            return;
+        }
         StartCoroutine(CameraController.RotateCamera(1.0f, isWhiteTurn));
     }
 
@@ -135,9 +143,17 @@ public class BoardManager : MonoBehaviour
         if (!whiteHasPieces || !blackHasPieces)
         {
             Team winningTeam = whiteHasPieces ? Team.WHITE : Team.BLACK;
-            GameOverManager gameOverManager = FindObjectOfType<GameOverManager>();
+            GameOverManager gameOverManager = Object.FindFirstObjectByType<GameOverManager>();
+            isGameOver = true;
             gameOverManager.ShowGameOverScreen(winningTeam);
         }
     }
 
+    public void PlayPiecePlacedSound()
+    {
+        if (isBoardSetupComplete)
+        {
+            audioSource.Play();
+        }
+    }
 }

@@ -14,6 +14,8 @@ public static class BoardGenerator
 
         GenerateWhiteTeam(boardManager);
         GenerateBlackTeam(boardManager);
+
+        boardManager.isBoardSetupComplete = true;
     }
 
     private static void GenerateWhiteTeam(BoardManager boardManager)
