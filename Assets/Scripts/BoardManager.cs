@@ -115,4 +115,29 @@ public class BoardManager : MonoBehaviour
         isWhiteTurn = !isWhiteTurn;
         StartCoroutine(CameraController.RotateCamera(1.0f, isWhiteTurn));
     }
+
+    public void CheckGameOver()
+    {
+        bool whiteHasPieces = false;
+        bool blackHasPieces = false;
+
+        foreach (Piece piece in pieces)
+        {
+            if (piece != null)
+            {
+                if (piece.team == Team.WHITE)
+                    whiteHasPieces = true;
+                else if (piece.team == Team.BLACK)
+                    blackHasPieces = true;
+            }
+        }
+
+        if (!whiteHasPieces || !blackHasPieces)
+        {
+            Team winningTeam = whiteHasPieces ? Team.WHITE : Team.BLACK;
+            GameOverManager gameOverManager = FindObjectOfType<GameOverManager>();
+            gameOverManager.ShowGameOverScreen(winningTeam);
+        }
+    }
+
 }
